@@ -28,22 +28,56 @@ OctoFit Tracker is a three-tier application for a school fitness program. The st
 
 ## Implementation decisions
 
-Record your plan here before editing code.
+### Data tier
+- Define Mongoose models for `User`, `Team`, `Activity`, and `Workout` with schema validation.
+- **User**: Require `name`, `email`, and `fitnessGoal`; `email` must be unique.
+- **Team**: Require `name` and `mascot`; include `members` array referencing User IDs.
+- **Activity**: Require `type` (e.g., "run", "swim"), `user` (ObjectId), `team` (ObjectId), and `minutes`; compute `points` based on type and minutes; set `occurredAt` to current date if not provided.
+- **Workout**: Require `title`, `focus` (e.g., "endurance", "strength"), `minutes`, and `difficulty` (1–5); used for suggestions.
+- Implement seed data in `src/scripts/seed.ts` for all models idempotently.
 
-- Presentation tier decision:
-- Logic tier decision:
-- Data tier decision:
-- Activity tracking approach:
-- Team management approach:
-- Leaderboard approach:
-- Workout suggestions approach:
+### Logic tier
+- **Activities endpoints**: 
+  - `GET /api/activities`: Return all activities.
+  - `POST /api/activities`: Accept `userId`, `teamId`, `type`, `minutes`; validate that user and team exist; compute and store `points`; return 400 if validation fails (never 500).
+- **Teams endpoints**:
+  - `GET /api/teams`: Return all teams with populated members.
+  - `POST /api/teams`: Accept `name` and `mascot`; return 400 if `name` is missing or empty.
+- **Leaderboard endpoint**:
+  - `GET /api/leaderboard`: Return teams ordered by total activity points (sum across all team members' activities), highest first; include 1-based `rank`, `teamName`, and `totalPoints`.
+- **Workout suggestions endpoint**:
+  - `GET /api/workouts/suggestions/:userEmail`: Find user by email; analyze their recent activities to determine focus (e.g., most common type); return workouts matching that focus; include `reason` explaining the suggestion (e.g., "matches your recent running activity"); return 400 or 404 for invalid or missing user.
+- Separate concerns: routes in `src/routes`, services/business logic in `src/services`, models in `src/models`.
+
+### Presentation tier
+- Replace all "Implementation pending" placeholder pages with real data-fetching components.
+- **Activities page**: Fetch and display all activities; include columns for user, team, type, minutes, points, and date; add a form to create new activities with validation feedback.
+- **Teams page**: Fetch and display all teams; show team name, mascot, and member count; add a form to create new teams.
+- **Leaderboard page**: Fetch and display ranked teams; show rank, team name, and total points; sort by points descending.
+- **Workout suggestions page**: Prompt user for email; fetch and display workout suggestions; show each suggestion's title, focus, duration, difficulty, and reason.
+- Add empty states (e.g., "No activities yet") and accessible error alerts for failed API calls (e.g., "Failed to load activities").
+- Use Bootstrap for consistent styling and responsive layout.
 
 ## Test plan
 
-Record the commands you run and what each failure means.
+### Implementation order and testing strategy
+1. **Data tier**: Implement Mongoose models, then run data contract tests to validate schema and seeding.
+2. **Logic tier**: Implement API routes and services, then run API contract tests to validate endpoint behavior and error handling.
+3. **Presentation tier**: Implement React components, then run frontend tests to validate UI rendering and user interactions.
 
-- Data-tier command: `npm run test:data --prefix octofit-tracker/backend`
-- API command: `npm run test:api --prefix octofit-tracker/backend`
-- Frontend command: `npm test --prefix octofit-tracker/frontend`
-- Backend build command: `npm run build --prefix octofit-tracker/backend`
-- Frontend build command: `npm run build --prefix octofit-tracker/frontend`
+### Test commands and expected results
+
+| Phase | Command | Expected success |
+|-------|---------|------------------|
+| **Data-tier validation** | `npm run test:data --prefix octofit-tracker/backend` | All 5 tests pass: User, Team, Activity, Workout models validate required fields; seed data loads idempotently |
+| **API-tier validation** | `npm run test:api --prefix octofit-tracker/backend` | All 4 tests pass: Activities and Teams accept valid input (201), reject invalid input (400); Leaderboard returns teams ranked by total points; Workout suggestions include title, focus, duration, difficulty, and reason |
+| **Frontend validation** | `npm test --prefix octofit-tracker/frontend` | All 15 tests pass: Activities page renders fetched activities; Teams page renders fetched teams; Leaderboard page renders ranked teams; Workout suggestions page fetches and displays suggestions; all pages include empty states and error alerts |
+| **Backend build** | `npm run build --prefix octofit-tracker/backend` | TypeScript compiles without errors; routes and services are type-safe |
+| **Frontend build** | `npm run build --prefix octofit-tracker/frontend` | React components build successfully; no console errors during build |
+
+### Test failure diagnostics
+
+- **Data-tier failures**: Missing Mongoose schema validation; run `npm run test:data` to identify which fields lack required validation.
+- **API-tier failures**: Route handlers not implemented or returning 501; invalid input not validated (should return 400); aggregate queries not calculating totals or ranking correctly.
+- **Frontend failures**: Components showing "Implementation pending"; API calls not made or data not rendered; missing empty states or error alerts.
+- **Build failures**: TypeScript type errors or module resolution issues; check `src/routes`, `src/services`, and `src/models` for syntax or import errors.
